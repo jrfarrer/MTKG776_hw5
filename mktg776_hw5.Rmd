@@ -1,0 +1,135 @@
+---
+title: "MKTG776 HW5"
+author: "Jordan Farrer"
+date: '2017-02-24'
+output: function(...) {
+
+          fmt <- rmarkdown::pdf_document(toc = TRUE, number_section = TRUE, df_print = 'kable',...)
+        
+          fmt$knitr$knit_hooks$size = function(before, options, envir) {
+            if (before) return(paste0("\n \\", options$size, "\n\n"))
+            else return("\n\n \\normalsize \n")
+          }
+        
+          return(fmt)
+        }
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', size = 'small')
+```
+
+# Question 1
+
+
+|Hazard Function Shape|Business Story|
+|:-----------:|:---------------------------------------------------------|
+|Monotonically increasing|Probability of response from customer service at a tech company. All young tech companies have great customer support and you will hear back from them, with certainty. However, the probability you hear back in the next minute is always greater than the probability you hear back in the current minute.|
+|Monotonically decreasing|Probability of reordering from a food delivery service after your first order. The highest probability occurs in the following day and the next highest day is second day. Likewise, this probability of reordering falls monotonically to some long-run probability.|
+|U-shaped|Probability of responding to an email from a coworker with a significant ask. You may immediately respond saying it's best to meet or that you'll follow up with a longer response or you can not respond immediately. If so eventually the probability that you will respond only goes up over time after bottoming out. The assumption is that you will eventually respond to all such emails.|
+|Upside-down U-shaped|Probability of being promoted from the time you enter a new role. You are extremely unlikely of being promoted immediately after starting and the probability increases over time. However, at some point there is a chnage where if you didn't get promoted yet, the likelihood of getting promoted levels off at a lower state.|
+
+
+# Question 2
+
+```{r}
+pacman::p_load(tidyverse, pander)
+panderOptions('round', 4)
+panderOptions('keep.trailing.zeros', TRUE)
+options(scipen = 10, digits = 5)
+
+kb <- 
+  readxl::read_excel("Krunchy Bits.xlsx", skip = 5, col_names = c("week", "num_households")) %>%
+  filter(complete.cases(.))
+```
+
+
+```{r}
+fn_eg <- function(r, alpha, t) {
+  p_x <- 1 - (alpha / (alpha + t))^r
+  return(p_x)
+}
+
+fn_eg_ll <- function(par, t, x, x_total) {
+  p_x <- fn_eg(par[1], par[2], t)
+  p_x_diff <- p_x - dplyr::lag(p_x, default = 0)
+  incremental <- x - dplyr::lag(x, default = 0)
+  ll <- sum(incremental * log(p_x_diff)) + (x_total - x[length(x)])*log(1 - p_x[length(p_x)])
+  return(-ll)
+}
+
+params_eg <- nlminb(c(1,1), fn_eg_ll, lower = c(0,0), 
+                    upper = c(Inf,Inf), t = kb$week, x = kb$num_households, x_total = 1499)$par
+
+kb_r <- params_eg[1]
+kb_alpha <- params_eg[2]
+```
+
+We estimate the model parameters of the EG model to be **$r = `r kb_r`$** and **$\alpha = `r kb_alpha`$**.
+
+```{r}
+kb_probs <- 
+  kb %>% 
+    mutate(
+      `P(T <= t)` = map_dbl(week, fn_eg, r = kb_r, alpha = kb_alpha)
+      , `P(T = t)` = `P(T <= t)` - lag(`P(T <= t)`, default = 0)
+    )
+```
+
+```{r echo = FALSE}
+kb_probs %>%
+  head(10) %>%
+  pander(caption = "Exponential-Gamma Model on KB Dataset")
+```
+
+```{r}
+two_years <- 
+  data_frame(
+    week = c(52, 52*2)
+    , `P(T <= t)` = map_dbl(week, fn_eg, r = kb_r, alpha = kb_alpha)
+    , `P(T = t)` = `P(T <= t)` - lag(`P(T <= t)`, default = 0)
+  )
+```
+
+```{r echo = FALSE}
+two_years %>%
+  pander(caption = "Exponential-Gamma Model on KB Dataset for Year 1 and Year 2")
+```
+
+
+We know that the probability of "failing" (in our case buying KB) in the next *small* interval of time given "survival" to time *t* is 
+
+\begin{align}
+\ P(t < T \le t + \Delta T | T > t) \approx h(t) \times \Delta T
+\end{align}
+
+where the hazard function, $h(t)$ for the EG model is
+
+\begin{align}
+\ h(t|\alpha, r) = \frac{r}{\alpha + t}
+\end{align}
+
+So, the probability that someone who hasn't yet purchased KB by the end of the first year will make their initial purchase before the end of year 2 is 
+
+\begin{align}
+\ P(t < T \le t + \Delta T | T > t) & \approx h(t) \times \Delta T \\
+ & \approx \frac{r}{\alpha + t} + \Delta T \\
+ & \approx \frac{`r kb_r`}{`r kb_alpha` + 52} + 52 \\
+ & \approx `r kb_r /(kb_alpha + 52) + 52`
+\end{align}
+
+On the other hand, the probability that a randomly chosen person makes an initial purchase within year 1 is simply **`r two_years[1,3][[1]]`**. The reason for the drop-off in probability is that a customer who hasn't purchased KB for 52 weeks (1 year) in unlikely to suddenly purchase KB in the next subsequent 52 weeks (year 1 to year 2). There were many opporunities to purchase in year one. We can see this from the shape of the hazard function:
+
+```{r}
+data_frame(
+  t = 1:104
+) %>%
+  mutate(
+    hazard_function = kb_r / (kb_alpha + t)
+    )  %>%
+  ggplot(aes(x = t, y = hazard_function)) +
+  geom_line() +
+  labs(y = "h(t)", title = "Hazard Function")
+```
+
