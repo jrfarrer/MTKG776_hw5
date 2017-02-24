@@ -114,9 +114,9 @@ So, the probability that someone who hasn't yet purchased KB by the end of the f
 
 \begin{align}
 \ P(t < T \le t + \Delta T | T > t) & \approx h(t) \times \Delta T \\
- & \approx \frac{r}{\alpha + t} + \Delta T \\
- & \approx \frac{`r kb_r`}{`r kb_alpha` + 52} + 52 \\
- & \approx `r kb_r /(kb_alpha + 52) + 52`
+ & \approx \frac{r}{\alpha + t} +\times\Delta T \\
+ & \approx \frac{`r kb_r`}{`r kb_alpha` + 52} \times 52 \\
+ & \approx `r kb_r /(kb_alpha + 52) * 52`
 \end{align}
 
 On the other hand, the probability that a randomly chosen person makes an initial purchase within year 1 is simply **`r two_years[1,3][[1]]`**. The reason for the drop-off in probability is that a customer who hasn't purchased KB for 52 weeks (1 year) in unlikely to suddenly purchase KB in the next subsequent 52 weeks (year 1 to year 2). There were many opporunities to purchase in year one. We can see this from the shape of the hazard function:
