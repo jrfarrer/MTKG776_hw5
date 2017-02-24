@@ -114,7 +114,7 @@ So, the probability that someone who hasn't yet purchased KB by the end of the f
 
 \begin{align}
 \ P(t < T \le t + \Delta T | T > t) & \approx h(t) \times \Delta T \\
- & \approx \frac{r}{\alpha + t} +\times\Delta T \\
+ & \approx \frac{r}{\alpha + t} \times\Delta T \\
  & \approx \frac{`r kb_r`}{`r kb_alpha` + 52} \times 52 \\
  & \approx `r kb_r /(kb_alpha + 52) * 52`
 \end{align}
